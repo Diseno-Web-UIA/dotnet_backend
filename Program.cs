@@ -16,10 +16,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-builder.WebHost.ConfigureKestrel(serverOptions =>
-{
-    serverOptions.ListenAnyIP(80); // Escucha en el puerto 80
-});
+
 
 app.UseHttpsRedirection();
 
