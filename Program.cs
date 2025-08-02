@@ -1,17 +1,14 @@
-using backend.Models;
 using Microsoft.EntityFrameworkCore;
+using backend.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<lastprojectContext>(options => options.UseSqlServer(
-    builder.Configuration.GetConnectionString("DefaultConnection")
-
-    ));
-
-// Add services to the container.
 builder.Services.AddControllers();
 
-// Add CORS
+// Se agrega el Entity Framework
+builder.Services.AddDbContext<lastprojectContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
@@ -37,7 +34,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Use CORS
 app.UseCors("AllowAll");
 
 app.UseAuthorization();
