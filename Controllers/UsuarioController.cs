@@ -13,29 +13,43 @@ namespace backend.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class UsersController(lastprojectContext context) : ControllerBase
+    public class UsuarioController(lastprojectContext context) : ControllerBase
     {
         private readonly lastprojectContext _context = context;
 
         // GET: api/<UsersController>
         [HttpGet]
-        public async Task<IEnumerable<Usuario>> List(int idPersona)
+        public async Task<ActionResult<IEnumerable<DTO.Usuario.GET>>> List(int idPersona)
         {
-            var users = await _context.Usuario.Where(u => u.Persona_idPersona == idPersona).ToArrayAsync();
-            return users;
+            return Ok(await _context.Usuario
+                .Where(u => u.Persona_idPersona == idPersona)
+                .Select(u => new DTO.Usuario.GET
+                {
+                    idUsuario = u.idUsuario,
+                    estado = u.estado,
+                    Clave = u.Clave,
+                    Persona_idPersona = u.Persona_idPersona
+                })
+                .ToArrayAsync());
         }
 
         // GET api/<UsersController>/5
         [HttpGet("{userName}")]
-        public async Task<ActionResult<Usuario>> Get(String userName)
+        public async Task<ActionResult<DTO.Usuario.GET>> Get(String userName)
         {
             var user = await _context.Usuario.FirstOrDefaultAsync(u => u.idUsuario.Equals(userName));
-            return user != null ? Ok(user) : NotFound(new Error("No se encuentra el usuario", 404));
+            return user != null ? Ok(new DTO.Usuario.GET
+            {
+                idUsuario = user.idUsuario,
+                estado = user.estado,
+                Clave = user.Clave,
+                Persona_idPersona = user.Persona_idPersona
+            }) : NotFound(new Error("No se encuentra el usuario", 404));
         }
 
         // POST api/<UsersController>
         [HttpPost]
-        public async Task<ActionResult<Usuario>> Post([FromBody] DTO.Usuario.POST dto)
+        public async Task<ActionResult<DTO.Usuario.GET>> Post([FromBody] DTO.Usuario.POST dto)
         {
             if (!ModelState.IsValid){
                 return BadRequest(ModelState);
@@ -66,7 +80,7 @@ namespace backend.Controllers
 
          // PUT api/<UsersController>/5
         [HttpPut("{userName}")]
-        public async Task<ActionResult<Usuario>> Put(String userName, [FromBody] DTO.Usuario.PUT dto)
+        public async Task<ActionResult<DTO.Usuario.GET>> Put(String userName, [FromBody] DTO.Usuario.PUT dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             var user = await _context.Usuario.FindAsync(userName);
@@ -88,7 +102,13 @@ namespace backend.Controllers
             try
             {
                 await _context.SaveChangesAsync();
-                return Ok(user);
+                return Ok(new DTO.Usuario.GET
+                {
+                    idUsuario = user.idUsuario,
+                    estado = user.estado,
+                    Clave = user.Clave,
+                    Persona_idPersona = user.Persona_idPersona
+                });
             }
             catch (DbUpdateException ex)
             {
@@ -102,7 +122,7 @@ namespace backend.Controllers
 
         // DELETE api/<UsersController>/5
         [HttpDelete("{userName}")]
-        public async Task<ActionResult<Usuario>> Delete(string userName)
+        public async Task<IActionResult> Delete(string userName)
         {
             await _context.Usuario.Where(u => u.idUsuario.Equals(userName)).ExecuteDeleteAsync();
             return Ok(new
@@ -114,7 +134,7 @@ namespace backend.Controllers
 
         // PATCH api/<UsersController>/5
         [HttpPatch("{userName}")]
-        public async Task<ActionResult<Usuario>> Patch(string userName, [FromBody] DTO.Usuario.PATCH dto)
+        public async Task<ActionResult<DTO.Usuario.GET>> Patch(string userName, [FromBody] DTO.Usuario.PATCH dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
             var user = await _context.Usuario.FindAsync(userName);
@@ -134,7 +154,13 @@ namespace backend.Controllers
             try
             {
                 await _context.SaveChangesAsync();
-                return Ok(user);
+                return Ok(new DTO.Usuario.GET
+                {
+                    idUsuario = user.idUsuario,
+                    estado = user.estado,
+                    Clave = user.Clave,
+                    Persona_idPersona = user.Persona_idPersona
+                });
             }
             catch (DbUpdateException ex)
             {

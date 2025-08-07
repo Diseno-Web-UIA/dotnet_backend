@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using backend.Models;
+using backend.Utils;
 
 namespace backend.Controllers
 {
@@ -17,36 +18,39 @@ namespace backend.Controllers
 
         // GET: api/persona
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Persona>>> GetPersonas()
+        public async Task<ActionResult<IEnumerable<DTO.Persona.GET>>> GetPersonas()
         {
-            return await _context.Persona
+            var dbPersonas = await _context.Persona
                 .Include(p => p.Email)
                 .Include(p => p.Telefono)
                 .Include(p => p.Direccion)
+                .Include(p => p.Usuario)
                 .ToListAsync();
+
+            List<DTO.Persona.GET> personas = [.. dbPersonas.Select(p => GetPersonaValue(p))];
+
+            return Ok(personas);
         }
 
         // GET: api/persona/{id}
         [HttpGet("{id}")]
-        public async Task<ActionResult<Persona>> GetPersona(int id)
+        public async Task<ActionResult<DTO.Persona.GET>> GetPersona(int id)
         {
-            var persona = await _context.Persona
+            var p = await _context.Persona
                 .Include(p => p.Email)
                 .Include(p => p.Telefono)
                 .Include(p => p.Direccion)
+                .Include(p => p.Usuario)
                 .FirstOrDefaultAsync(p => p.idPersona == id);
 
-            if (persona == null)
-            {
-                return NotFound();
-            }
+            if (p == null) return NotFound(new Error("Persona No Encontrada", 404));
 
-            return persona;
+            return Ok(GetPersonaValue(p));
         }
 
         // POST: api/persona
         [HttpPost]
-        public async Task<ActionResult<Persona>> CreatePersona([FromBody] DTO.Persona.POST dto)
+        public async Task<ActionResult<DTO.Persona.GET>> CreatePersona([FromBody] DTO.Persona.POST dto)
         {
             if (!ModelState.IsValid)
             {
@@ -70,20 +74,13 @@ namespace backend.Controllers
 
         // PUT: api/persona/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePersona(int id, [FromBody] DTO.Persona.PUT dto)
+        public async Task<ActionResult<DTO.Persona.GET>> UpdatePersona(int id, [FromBody] DTO.Persona.PUT dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
             var persona = await _context.Persona.FindAsync(id);
-            if (persona == null)
-            {
-                return NotFound(new
-                {
-                    message = "Persona no encontrada",
-                    status = 404
-                });
-            }
+            if (persona == null) return NotFound(new Error("Persona No Encontrada", 404));
 
             persona.Nombre1 = dto.Nombre1;
             persona.Apellido1 = dto.Apellido1;
@@ -94,40 +91,28 @@ namespace backend.Controllers
             try
             {
                 await _context.SaveChangesAsync();
-                return Ok(persona);
+                return Ok(GetPersonaValue(persona));
             }
-            catch (DbUpdateConcurrencyException)
+            catch (DbUpdateException ex)
             {
-                if (!PersonaExists(id))
-                {
-                    return NotFound(new
-                    {
-                        message = "Persona ya no existe (concurrency error)",
-                        status = 404
-                    });
-                }
-
-                throw;
+                return Conflict(new Error(ex.Message, 409));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new Error("Error Inesperado", 500, ex.StackTrace ?? ""));
             }
         }
 
         // PATCH: api/persona/{id}  
         [HttpPatch("{id}")]
-        public async Task<IActionResult> PatchPersona(int id, [FromBody] DTO.Persona.PATCH dto)
+        public async Task<ActionResult<DTO.Persona.GET>> PatchPersona(int id, [FromBody] DTO.Persona.PATCH dto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
             var persona = await _context.Persona.FindAsync(id);
-            if (persona == null)
-            {
-                return NotFound(new
-                {
-                    message = "Persona no encontrada",
-                    status = 404
-                });
-            }
+            if (persona == null) return NotFound(new Error("Persona No Encontrada", 404));
             if (dto.Nombre1 != null) persona.Nombre1 = dto.Nombre1;
             if (dto.Apellido1 != null) persona.Apellido1 = dto.Apellido1;
             if (dto.Apellido2 != null) persona.Apellido2 = dto.Apellido2;
@@ -136,19 +121,15 @@ namespace backend.Controllers
             try
             {
                 await _context.SaveChangesAsync();
-                return Ok(persona);
+                return Ok(GetPersonaValue(persona));
             }
-            catch (DbUpdateConcurrencyException)
+            catch (DbUpdateException ex)
             {
-                if (!PersonaExists(id))
-                {
-                    return NotFound(new
-                    {
-                        message = "Persona ya no existe (concurrency error)",
-                        status = 404
-                    });
-                }
-                throw;
+                return Conflict(new Error(ex.Message, 409));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new Error("Error Inesperado", 500, ex.StackTrace ?? ""));
             }
         }
 
@@ -168,9 +149,45 @@ namespace backend.Controllers
             return NoContent();
         }
 
-        private bool PersonaExists(int id)
+        private static DTO.Persona.GET GetPersonaValue(Persona p)
         {
-            return _context.Persona.Any(e => e.idPersona == id);
+            return new DTO.Persona.GET
+            {
+                idPersona = p.idPersona,
+                Nombre1 = p.Nombre1,
+                Apellido1 = p.Apellido1,
+                Apellido2 = p.Apellido2,
+                Fecha_Nacimiento = p.Fecha_Nacimiento,
+                genero = p.genero,
+                Usuarios = [.. p.Usuario.Select(u => new DTO.Usuario.GET
+                {
+                    idUsuario = u.idUsuario,
+                    estado = u.estado,
+                    Clave = u.Clave,
+                    Persona_idPersona = u.Persona_idPersona
+                })],
+                Emails = [.. p.Email.Select(e => new DTO.Email.GET
+                {
+                    Direccion_Email = e.Direccion_Email,
+                    Activo = e.Activo,
+                    Verificado = e.Verificado,
+                    Tipo_Email_idTipo_Email = e.Tipo_Email_idTipo_Email,
+                    Fecha_Actualizacion = e.Fecha_Actualizacion,
+                    Fecha_Creacion = e.Fecha_Creacion
+                })],
+                Telefonos = [.. p.Telefono.Select(t => new DTO.Telefono.GET
+                {
+                    idTelefono = t.idTelefono,
+                    Numero = t.Numero,
+                    Activo = t.Activo,
+                })],
+                Direcciones = [.. p.Direccion.Select(d => new DTO.Direccion.GET
+                {
+                    idDireccion = d.idDireccion,
+                    Detalle_Direccion = d.Detalle_Direccion,
+                    idTipo_Direccion = d.idTipo_Direccion,
+                })]
+            };
         }
     }
 } 
