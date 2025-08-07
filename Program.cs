@@ -21,16 +21,29 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.CustomSchemaIds(type =>
+    {
+        if (type.Namespace != null && type.Namespace.Contains("backend.DTO"))
+        {
+            var nsParts = type.Namespace.Split('.');
+            var module = nsParts.Last(); // Usuario o Persona
+            return $"{module} {char.ToUpper(type.Name.ToLower()[0])+ type.Name.ToLower()[1..].ToLower()}";
+        }
+
+        return type.Name; // fallback
+    });
+});
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
+//if (app.Environment.IsDevelopment())
+//{
     app.UseSwagger();
     app.UseSwaggerUI();
-}
+//}
 
 app.UseHttpsRedirection();
 

@@ -1,5 +1,10 @@
-﻿using backend.Models;
+﻿using Azure;
+using backend.Models;
+using backend.Utils;
+using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -14,44 +19,131 @@ namespace backend.Controllers
 
         // GET: api/<UsersController>
         [HttpGet]
-        public async Task<IEnumerable<Persona>> Get()
+        public async Task<IEnumerable<Usuario>> List(int idPersona)
         {
-            var clients = _context.Persona.ToList();
-            return clients;
+            var users = await _context.Usuario.Where(u => u.Persona_idPersona == idPersona).ToArrayAsync();
+            return users;
         }
 
         // GET api/<UsersController>/5
-        [HttpGet("{id}")]
-        public Persona Get(int id)
+        [HttpGet("{userName}")]
+        public async Task<ActionResult<Usuario>> Get(String userName)
         {
-            try
-            {
-                var client = _context.Persona.FirstOrDefault(c => c.idPersona == id);
-                return client;
-            }
-            catch (Exception ex)
-            {
-                // Log the exception (ex) here if needed
-                return null; // or handle it as appropriate
-            }
+            var user = await _context.Usuario.FirstOrDefaultAsync(u => u.idUsuario.Equals(userName));
+            return user != null ? Ok(user) : NotFound(new Error("No se encuentra el usuario", 404));
         }
 
         // POST api/<UsersController>
         [HttpPost]
-        public void Post([FromBody] string value)
+        public async Task<ActionResult<Usuario>> Post([FromBody] DTO.Usuario.POST dto)
         {
+            if (!ModelState.IsValid){
+                return BadRequest(ModelState);
+            }
+            var user = new Usuario
+            {
+                idUsuario = dto.idUsuario,
+                estado = dto.estado,
+                Clave = dto.Clave,
+                Persona_idPersona = dto.Persona_idPersona
+
+            };
+            try
+            {
+                await _context.Usuario.AddAsync(user);
+                return CreatedAtAction(nameof(Get), new { userName = user.idUsuario }, user);
+            }
+            catch(DbUpdateException ex)
+            {
+                return Conflict(new Error(ex.Message, 409));
+            }
+            catch(Exception ex)
+            {
+                return StatusCode(500, new Error("Error Inesperado", 500, ex.StackTrace ?? ""));
+            }
+
         }
 
-        // PUT api/<UsersController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+         // PUT api/<UsersController>/5
+        [HttpPut("{userName}")]
+        public async Task<ActionResult<Usuario>> Put(String userName, [FromBody] DTO.Usuario.PUT dto)
         {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var user = await _context.Usuario.FindAsync(userName);
+            if (user == null)
+            {
+                return NotFound(new
+                {
+                    message = "Usuario No encontrado",
+                    status = 404
+                });
+            }
+
+            user.estado = dto.estado;
+            user.Clave = dto.Clave;
+            user.Persona_idPersona = dto.Persona_idPersona;
+            _context.Usuario.Update(user);
+
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(user);
+            }
+            catch (DbUpdateException ex)
+            {
+                return Conflict(new Error(ex.Message, 409));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new Error("Error Inesperado", 500, ex.StackTrace ?? ""));
+            }
         }
 
         // DELETE api/<UsersController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
+        [HttpDelete("{userName}")]
+        public async Task<ActionResult<Usuario>> Delete(string userName)
         {
+            await _context.Usuario.Where(u => u.idUsuario.Equals(userName)).ExecuteDeleteAsync();
+            return Ok(new
+            {
+                status = "success",
+                message = $"Usuario {userName} eliminado"
+            });
+        }
+
+        // PATCH api/<UsersController>/5
+        [HttpPatch("{userName}")]
+        public async Task<ActionResult<Usuario>> Patch(string userName, [FromBody] DTO.Usuario.PATCH dto)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            var user = await _context.Usuario.FindAsync(userName);
+            if (user == null)
+            {
+                return NotFound(new
+                {
+                    message = "Usuario No encontrado",
+                    status = 404
+                });
+            }
+
+            if(dto.Clave != null) user.Clave = dto.Clave;
+            if(dto.estado != null) user.estado = dto.estado.Value;
+            if(dto.Persona_idPersona != null) user.Persona_idPersona = dto.Persona_idPersona.Value;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(user);
+            }
+            catch (DbUpdateException ex)
+            {
+                return Conflict(new Error(ex.Message, 409));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new Error("Error Inesperado", 500, ex.StackTrace ?? ""));
+            }
         }
     }
 }

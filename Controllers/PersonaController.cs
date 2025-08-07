@@ -46,12 +46,21 @@ namespace backend.Controllers
 
         // POST: api/persona
         [HttpPost]
-        public async Task<ActionResult<Persona>> CreatePersona([FromBody] Persona persona)
+        public async Task<ActionResult<Persona>> CreatePersona([FromBody] DTO.Persona.POST dto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
+
+            var persona = new Persona
+            {
+                Nombre1 = dto.Nombre1,
+                Apellido1 = dto.Apellido1,
+                Apellido2 = dto.Apellido2,
+                Fecha_Nacimiento = dto.Fecha_Nacimiento,
+                genero = dto.genero
+            };
 
             _context.Persona.Add(persona);
             await _context.SaveChangesAsync();
@@ -61,37 +70,86 @@ namespace backend.Controllers
 
         // PUT: api/persona/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePersona(int id, [FromBody] Persona persona)
+        public async Task<IActionResult> UpdatePersona(int id, [FromBody] DTO.Persona.PUT dto)
         {
-            if (id != persona.idPersona)
-            {
-                return BadRequest();
-            }
-
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
+
+            var persona = await _context.Persona.FindAsync(id);
+            if (persona == null)
+            {
+                return NotFound(new
+                {
+                    message = "Persona no encontrada",
+                    status = 404
+                });
             }
 
-            _context.Entry(persona).State = EntityState.Modified;
+            persona.Nombre1 = dto.Nombre1;
+            persona.Apellido1 = dto.Apellido1;
+            persona.Apellido2 = dto.Apellido2;
+            persona.Fecha_Nacimiento = dto.Fecha_Nacimiento;
+            persona.genero = dto.genero;
 
             try
             {
                 await _context.SaveChangesAsync();
+                return Ok(persona);
             }
             catch (DbUpdateConcurrencyException)
             {
                 if (!PersonaExists(id))
                 {
-                    return NotFound();
+                    return NotFound(new
+                    {
+                        message = "Persona ya no existe (concurrency error)",
+                        status = 404
+                    });
                 }
-                else
-                {
-                    throw;
-                }
-            }
 
-            return NoContent();
+                throw;
+            }
+        }
+
+        // PATCH: api/persona/{id}  
+        [HttpPatch("{id}")]
+        public async Task<IActionResult> PatchPersona(int id, [FromBody] DTO.Persona.PATCH dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            var persona = await _context.Persona.FindAsync(id);
+            if (persona == null)
+            {
+                return NotFound(new
+                {
+                    message = "Persona no encontrada",
+                    status = 404
+                });
+            }
+            if (dto.Nombre1 != null) persona.Nombre1 = dto.Nombre1;
+            if (dto.Apellido1 != null) persona.Apellido1 = dto.Apellido1;
+            if (dto.Apellido2 != null) persona.Apellido2 = dto.Apellido2;
+            if (dto.Fecha_Nacimiento != null) persona.Fecha_Nacimiento = (DateOnly)dto.Fecha_Nacimiento;
+            if (dto.genero != null) persona.genero = (int)dto.genero;
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(persona);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!PersonaExists(id))
+                {
+                    return NotFound(new
+                    {
+                        message = "Persona ya no existe (concurrency error)",
+                        status = 404
+                    });
+                }
+                throw;
+            }
         }
 
         // DELETE: api/persona/{id}
