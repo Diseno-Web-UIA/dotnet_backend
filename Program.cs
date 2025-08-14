@@ -28,11 +28,11 @@ builder.Services.AddSwaggerGen(c =>
         if (type.Namespace != null && type.Namespace.Contains("backend.DTO"))
         {
             var nsParts = type.Namespace.Split('.');
-            var module = nsParts.Last(); // Usuario o Persona
+            var module = nsParts.Last(); 
             return $"{module} {char.ToUpper(type.Name.ToLower()[0])+ type.Name.ToLower()[1..].ToLower()}";
         }
 
-        return type.Name; // fallback
+        return type.Name; 
     });
 });
 
@@ -46,6 +46,7 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
+    app.UseHttpsRedirection();
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
